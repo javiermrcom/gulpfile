@@ -1,7 +1,13 @@
-## gulpfile
+# gulpfile
 
-You can use this *gulpfile* to your projects. You only have to change the value of *path* variable.
+You can use this *gulpfile* to your projects.
 
+### Installation
+```
+npm install
+```
+### Configuration
+You only have to change the value of each path.
 ``` javascript
 var path = {
   dist: {
@@ -14,3 +20,17 @@ var path = {
   }
 };
 ```
+
+### Use
+#### Development task
+Run in command line:
+```
+gulp dev 
+```
+#### Production task
+Run in command line:
+```
+gulp build 
+```
+
+
