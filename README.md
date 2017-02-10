@@ -6,6 +6,7 @@ You can use this *gulpfile* to your projects.
 ```
 npm install
 ```
+
 ### Configuration
 You only have to change the value of each path.
 ``` javascript
