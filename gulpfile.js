@@ -136,13 +136,13 @@ function watch() {
   gulp.watch(path.src.styles + '/' + '**/*.scss', function (event) {
     livereload.listen();
     console.log('File ' + event.path + ' was ' + event.type);
-    gulp.run('styles');
+    gulp.run('styles:dev');
   });
 
   // script files
   gulp.watch(path.src.scripts + '/' + '**/*.js', function (event) {
     livereload.listen();
     console.log('File ' + event.path + ' was ' + event.type);
-    gulp.run('scripts');
+    gulp.run('scripts:dev');
   });
 }
