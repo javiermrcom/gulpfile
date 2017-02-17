@@ -1,5 +1,6 @@
 // plugins
 var gulp = require('gulp'),
+    express = require('express'),
     webpack = require('webpack-stream'),
     sass = require('gulp-sass'),
     autoprefixer = require('gulp-autoprefixer'),
@@ -8,32 +9,33 @@ var gulp = require('gulp'),
     rename = require('gulp-rename'),
     gclean = require('gulp-clean'),
     concat = require('gulp-concat'),
-    livereload = require('gulp-livereload');
+    connect = require('gulp-connect');
+
+var serverPort = 5001;
 
 // paths
 var path = {
   dist: {
-    styles: 'public/css',
-    scripts: 'public/js'
+    styles: './public/css',
+    scripts: './public/js'
   },
   src: {
-    styles: 'resources/assets/scss',
-    scripts: 'resources/assets/js'
+    styles: './resources/assets/scss',
+    scripts: './resources/assets/js'
   }
 };
 
 // tasks
 gulp.task('clean', clean);
+gulp.task('serve', serve);
 gulp.task('watch', watch);
 gulp.task('styles:dev', stylesDev);
 gulp.task('styles:dist', stylesDist);
 gulp.task('scripts:dev', scriptsDev);
 gulp.task('scripts:dist', scriptsDist);
-gulp.task('compile:dev', ['clean'], compileDev);
-gulp.task('compile:dist', compileDist);
 
-gulp.task('dev', dev);
-gulp.task('build', build);
+gulp.task('dev', ['serve', 'clean', 'styles:dev', 'scripts:dev', 'watch']);
+gulp.task('build', ['styles:dist', 'scripts:dist']);
 
 /**
  * StylesDev
@@ -45,6 +47,7 @@ function stylesDev() {
       .pipe(sass({style: 'expanded'}).on('error', sass.logError))
       .pipe(autoprefixer('last 2 version', 'safari 5', 'ie 8', 'ie 9', 'opera 12.1', 'ios 6', 'android 4'))
       .pipe(gulp.dest(path.dist.styles))
+      .pipe(connect.reload());
 }
 
 /**
@@ -69,6 +72,7 @@ function scriptsDev() {
       .pipe(webpack())
       .pipe(concat('bundle.js'))
       .pipe(gulp.dest(path.dist.scripts))
+      .pipe(connect.reload());
 }
 
 /**
@@ -95,54 +99,26 @@ function clean() {
 }
 
 /**
- * CompileDev
- * Function to run styles and scripts compile tasks for development
- */
-function compileDev() {
-  gulp.run('styles:dev', 'scripts:dev');
-}
-
-/**
- * CompileDist
- * Function to run styles and scripts compile tasks for production
- */
-function compileDist() {
-  gulp.run('styles:dist', 'scripts:dist');
-}
-
-/**
- * Dev
- * Function to run dev tasks
- */
-function dev() {
-  gulp.run('compile:dev', 'watch');
-}
-
-
-/**
- * Build
- * Function to run build tasks
- */
-function build() {
-  gulp.run('compile:dist');
-}
-
-/**
  * Watch
  * Function to run watchers
  */
 function watch() {
   // style files
-  gulp.watch(path.src.styles + '/' + '**/*.scss', function (event) {
-    livereload.listen();
-    console.log('File ' + event.path + ' was ' + event.type);
-    gulp.run('styles:dev');
-  });
+  gulp.watch(path.src.styles + '/' + '**/*.scss', ['styles:dev']);
 
   // script files
-  gulp.watch(path.src.scripts + '/' + '**/*.js', function (event) {
-    livereload.listen();
-    console.log('File ' + event.path + ' was ' + event.type);
-    gulp.run('scripts:dev');
-  });
+  gulp.watch(path.src.scripts + '/' + '**/*.js', ['scripts:dev']);
+}
+
+/**
+ * Serve
+ * Function to serve assets
+ */
+function serve() {
+  connect.server({
+    name: 'Dev Server',
+    root: ['public'],
+    port: serverPort,
+    livereload: true
+  })
 }
