@@ -11,14 +11,8 @@ npm install
 You only have to change the value of each path.
 ``` javascript
 var path = {
-  dist: {
-    styles: 'public/css',
-    scripts: 'public/js'
-  },
-  src: {
-    styles: 'resources/assets/scss',
-    scripts: 'resources/assets/js'
-  }
+  dist: './public',
+  src: './resources'
 };
 ```
 
@@ -31,7 +25,7 @@ gulp dev
 #### Production task
 Run in command line:
 ```
-gulp build 
+gulp dist 
 ```
 
 
