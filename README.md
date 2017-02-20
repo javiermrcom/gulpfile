@@ -1,3 +1,5 @@
+![alt gulpjs](https://raw.githubusercontent.com/gulpjs/artwork/master/gulp.png)
+
 # gulpfile
 
 You can use this *gulpfile* to your projects.
