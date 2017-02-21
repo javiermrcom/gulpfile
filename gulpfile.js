@@ -1,52 +1,64 @@
 // plugins
 var gulp = require('gulp'),
-    express = require('express'),
+    gutil = require('gulp-util'),
     webpack = require('webpack-stream'),
     sass = require('gulp-sass'),
     autoprefixer = require('gulp-autoprefixer'),
-    minifycss = require('gulp-minify-css'),
     uglify = require('gulp-uglify'),
     rename = require('gulp-rename'),
     gclean = require('gulp-clean'),
+    cleanCSS = require('gulp-clean-css'),
     concat = require('gulp-concat'),
-    connect = require('gulp-connect');
+    connect = require('gulp-connect'),
+    gulpsync = require('gulp-sync')(gulp),
+    fs = require('fs'),
+    totalTaskTime = require('gulp-total-task-time');
 
-var serverPort = 5001;
+// server config
+var serverConfig = {
+  name: 'Dev Assets Server',
+  root: ['./public'],
+  port: 3000,
+  livereload: true,
+  debug: true
+};
 
 // paths
 var path = {
-  dist: {
-    styles: './public/css',
-    scripts: './public/js'
-  },
-  src: {
-    styles: './resources/assets/scss',
-    scripts: './resources/assets/js'
-  }
+  'dist': './public/sites',
+  'src': './resources/sites'
 };
 
+// sites
+var sites = getFolders(path.src);
+
+// init totalTaskTime
+totalTaskTime.init();
+
 // tasks
-gulp.task('clean', clean);
 gulp.task('serve', serve);
 gulp.task('watch', watch);
-gulp.task('styles:dev', stylesDev);
-gulp.task('styles:dist', stylesDist);
-gulp.task('scripts:dev', scriptsDev);
-gulp.task('scripts:dist', scriptsDist);
 
-gulp.task('dev', ['serve', 'clean', 'styles:dev', 'scripts:dev', 'watch']);
-gulp.task('build', ['styles:dist', 'scripts:dist']);
+gulp.task('clean', clean);
+gulp.task('clean:styles', cleanStyles);
+gulp.task('clean:scripts', cleanScripts);
+
+gulp.task('dev', gulpsync.sync(['serve', 'watch']), compile);
+gulp.task('compile', ['clean'], compile);
+gulp.task('dist', ['clean:styles', 'clean:scripts'], build);
 
 /**
  * StylesDev
  * Function to handle styles for development
  * @returns {*}
  */
-function stylesDev() {
-  return gulp.src(path.src.styles + '/' + '**/*.scss')
+function stylesDev(site) {
+  var siteSrc = fs.existsSync(path.src + '/' + site + '/assets/scss/app.scss') ? site : 'default';
+  log('[' + site + '] compile: styles');
+  return gulp.src(path.src + '/' + siteSrc + '/assets/scss/*.scss')
       .pipe(sass({style: 'expanded'}).on('error', sass.logError))
       .pipe(autoprefixer('last 2 version', 'safari 5', 'ie 8', 'ie 9', 'opera 12.1', 'ios 6', 'android 4'))
-      .pipe(gulp.dest(path.dist.styles))
+      .pipe(gulp.dest(path.dist + '/' + site + '/css'))
       .pipe(connect.reload());
 }
 
@@ -56,10 +68,11 @@ function stylesDev() {
  * @returns {*}
  */
 function stylesDist() {
-  return gulp.src(path.dist.styles + '/' + 'app.css')
-      .pipe(minifycss())
+  return gulp.src(path.dist + '/**/*.css')
       .pipe(rename({suffix: '.min'}))
-      .pipe(gulp.dest(path.dist.styles));
+      .pipe(cleanCSS({debug: true}))
+      .pipe(gulp.dest(path.dist))
+      .pipe(connect.reload());
 }
 
 /**
@@ -67,11 +80,14 @@ function stylesDist() {
  * Function to manage scripts
  * @returns {*}
  */
-function scriptsDev() {
-  return gulp.src(path.src.scripts + '/' + 'app.js')
+function scriptsDev(site) {
+  var siteSrc = fs.existsSync(path.src + '/' + site + '/assets/js/app.js') ? site : 'default';
+  log('[' + site + '] compile: scripts');
+
+  return gulp.src(path.src + '/' + siteSrc + '/assets/js/*.js')
       .pipe(webpack())
-      .pipe(concat('bundle.js'))
-      .pipe(gulp.dest(path.dist.scripts))
+      .pipe(concat('app.js'))
+      .pipe(gulp.dest(path.dist + '/' + site + '/js'))
       .pipe(connect.reload());
 }
 
@@ -81,11 +97,21 @@ function scriptsDev() {
  * @returns {*}
  */
 function scriptsDist() {
-  return gulp.src(path.src.scripts + '/' + 'app.js')
+  return gulp.src(path.dist + '/**/*.js')
       .pipe(uglify())
       .pipe(rename({suffix: '.min'}))
-      .pipe(gulp.dest(path.dist.scripts));
-  // .pipe(notify({message: 'Scripts task complete'}));
+      .pipe(gulp.dest(path.dist));
+}
+
+/**
+ * Compile
+ * Function to compile all assets in sites
+ */
+function compile() {
+  sites.map(function (site) {
+    stylesDev(site);
+    scriptsDev(site);
+  });
 }
 
 /**
@@ -94,8 +120,28 @@ function scriptsDist() {
  * @returns {*}
  */
 function clean() {
-  return gulp.src([path.dist.styles, path.dist.scripts], {read: false})
+  return gulp.src([path.dist], {read: false})
       .pipe(gclean());
+}
+
+function cleanStyles() {
+  return gulp.src([path.dist + '/**/*.min.css'], {read: false})
+      .pipe(gclean());
+}
+
+function cleanScripts() {
+  return gulp.src([path.dist + '/**/*.min.js'], {read: false})
+      .pipe(gclean());
+}
+
+/**
+ * Build
+ * Function to dist all assetsF
+ * @returns {*}
+ */
+function build() {
+  stylesDist();
+  scriptsDist();
 }
 
 /**
@@ -104,10 +150,36 @@ function clean() {
  */
 function watch() {
   // style files
-  gulp.watch(path.src.styles + '/' + '**/*.scss', ['styles:dev']);
+  gulp.watch([path.src + '/**/*.scss', path.src + '/**/*.css'])
+      .on('change', function (file) {
+        var site = getSiteNameFromPath(file.path);
+        log('[' + site + '] ' + file.type + ': ' + file.path);
+
+        // site => default ? compile all sites
+        if (site === 'default') {
+          sites.map(function (current) {
+            stylesDev(current);
+          })
+        } else {
+          stylesDev(site);
+        }
+      });
 
   // script files
-  gulp.watch(path.src.scripts + '/' + '**/*.js', ['scripts:dev']);
+  gulp.watch(path.src + '/**/*.js')
+      .on('change', function (file) {
+        var site = getSiteNameFromPath(file.path);
+        log('[' + site + '] ' + file.type + ': ' + file.path);
+
+        // site => default ? compile all sites
+        if (site === 'default') {
+          sites.map(function (current) {
+            scriptsDev(current);
+          })
+        } else {
+          scriptsDev(site);
+        }
+      });
 }
 
 /**
@@ -115,10 +187,37 @@ function watch() {
  * Function to serve assets
  */
 function serve() {
-  connect.server({
-    name: 'Dev Server',
-    root: ['public'],
-    port: serverPort,
-    livereload: true
-  })
+  connect.server(serverConfig);
+}
+
+// --------------
+// UTIL FUNCTIONS
+// --------------
+
+/**
+ * Log
+ * @param message
+ */
+function log(message) {
+  gutil.log(gutil.colors.cyan(message));
+}
+
+/**
+ * GetSiteNameFromPath
+ * @param path
+ */
+function getSiteNameFromPath(path) {
+  return path.split('/sites/')[1].split('/')[0];
+}
+
+/**
+ * GetFolders
+ * @param dir
+ * @returns {*}
+ */
+function getFolders(dir) {
+  return fs.readdirSync(dir)
+      .filter(function (folder) {
+        return fs.statSync(dir + '/' + folder).isDirectory();
+      });
 }
